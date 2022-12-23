@@ -9,17 +9,33 @@
 #if OS_LINUX
 #   include <unistd.h>
 #   include <sys/mman.h>
+#elif OS_WINDOWS
+#   define WIN32_LEAN_AND_MEAN
+#   include <windows.h>
 #endif
 
 namespace happy_machine {
 
 #if OS_LINUX
     [[nodiscard]] static constexpr auto map_protection(std::underlying_type_t<page_access::$> access) noexcept -> int {
-        int ret{};
+        int ret {};
         using enum page_access::$;
         if (access & r) ret |= PROT_READ;
         if (access & w) ret |= PROT_WRITE;
         if (access & x) ret |= PROT_EXEC;
+        return ret;
+    }
+#elif OS_WINDOWS
+    [[nodiscard]] static constexpr auto map_protection(std::underlying_type_t<page_access::$> access) noexcept -> DWORD {
+        int ret {};
+        using enum page_access::$;
+        switch (access) {
+            case r: return PAGE_READONLY;
+            case r | w: return PAGE_READWRITE;
+            case r | w | x: return PAGE_EXECUTE_READWRITE;
+            case r | x: return PAGE_EXECUTE_READ;
+            default: verify(false, "invalid page access flags");
+        }
         return ret;
     }
 #endif
@@ -33,12 +49,12 @@ namespace happy_machine {
         valloc_header **out_hdr
     ) -> virtual_mem {
         const std::size_t off{align-1+sizeof(void*)};
-        sz += align ? off : 0;
+        sz += align ? off + sizeof(valloc_header) : sizeof(valloc_header);
         void* base;
         std::uint32_t os_access;
         #if OS_LINUX
         {
-            int prot {map_protection(access)};
+            const int prot {map_protection(access)};
             int err {errno};
             void* p {::mmap(hint, sz, prot, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0)};
             errno = err;
@@ -46,8 +62,18 @@ namespace happy_machine {
             base = p;
             os_access = std::bit_cast<decltype(os_access)>(prot);
         }
+        #elif OS_WINDOWS
+        {
+            const DWORD prot {map_protection(access)};
+            DWORD err {::GetLastError()};
+            void* p {::VirtualAlloc(hint, sz, MEM_RESERVE|MEM_COMMIT|MEM_TOP_DOWN, prot)};
+            ::SetLastError(err);
+            verify(p, "virtual alloc failed");
+            base = p;
+            os_access = std::bit_cast<decltype(os_access)>(prot);
+        }
         #else
-        #   error "sys_valloc not implemented"
+        #   error "Missing OS impl"
         #endif
         auto& h {valloc_header::of(reinterpret_cast<virtual_mem>(base))};
         h.size = sz;
@@ -74,8 +100,10 @@ namespace happy_machine {
         #if OS_LINUX
             auto& h { valloc_header::of(p) };
             verify(!::munmap(reinterpret_cast<void*>(p), h.size), "munmap failed");
+        #elif OS_WINDOWS
+            verify(::VirtualFree(reinterpret_cast<void*>(p), 0, MEM_RELEASE), "virtual free failed");
         #else
-        #   error "sys_vfree not implemented"
+        #   error "Missing OS impl"
         #endif
     }
 }

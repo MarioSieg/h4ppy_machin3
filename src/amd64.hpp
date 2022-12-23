@@ -181,17 +181,12 @@ namespace happy_machine::amd64 {
             *p++ = opc | (r & 0b0000'0111_ma);
         }
 
-        template <typename T> requires std::is_integral_v<T>
-        constexpr auto insert_sx(mscar*& p, const T x) noexcept -> void {
-            *reinterpret_cast<std::remove_cvref_t<decltype(x)>*>(p) = x; p += sizeof x;
-        }
-
         constexpr auto movx_ri(mscar*& p, mscar r, imm x) noexcept -> void {
             width w {x.u64 & ~((1ULL << 32) - 1) ? width::qword : width::dword};
             si_opc(p, opc_transfer::mov_ri, r, w);
             switch (w) {
-                case width::dword: insert_sx(p, x.u32); break;
-                case width::qword: insert_sx(p, x.u64); break; // movabs - full 64-bit load
+                case width::dword: *reinterpret_cast<decltype(x.u32)*>(p) = x.u32; p += sizeof x.u32; break;
+                case width::qword: *reinterpret_cast<decltype(x.u64)*>(p) = x.u64; p += sizeof x.u64; break; // movabs - full 64-bit load
             }
         }
 
@@ -205,12 +200,12 @@ namespace happy_machine::amd64 {
             } else if (r == ireg64::rax) [[unlikely]] {
                 rex(p, 0, 0, 0, w);
                 *p++ = (opc << 3_ma) + 0b0000'0101_ma;
-                insert_sx(p, x.i32);
+                *reinterpret_cast<decltype(x.i32)*>(p) = x.i32; p += sizeof x.i32;
             } else [[likely]] {
                 rex(p, 0, 0, r, w);
                 *p++ = 0x81_ma;
                 modrm(p, modrm::reg_direct, opc, r);
-                insert_sx(p, x.i32);
+                *reinterpret_cast<decltype(x.i32)*>(p) = x.i32; p += sizeof x.i32;
             }
         }
 
