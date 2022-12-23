@@ -79,13 +79,6 @@ namespace happy_machine::amd64 {
         qword = true
     };
 
-    enum struct prefix : mscar  {
-        lock = 0xF0, repnz = 0xF2, repz = 0xF3, rep = 0xF3,
-        cs = 0x2E, ss = 0x36, ds = 0x3E, es = 0x26,
-        fs = 0x64, gs = 0x65, unlikely = 0x2E, likely = 0x3E,
-        operand = 0x66, address = 0x67
-    };
-
     enum struct modrm : mscar {
         reg_indirect = 0,
         signed_disp_8 = 1,
@@ -122,37 +115,6 @@ namespace happy_machine::amd64 {
     }
 
     namespace enc {
-        struct opc_transfer final {
-            enum $ : mscar {
-                mov_rr = 0x8B_ma, mov_ri = 0xB8_ma,
-                push_r = 0x50_ma, pop_r = 0x58_ma
-            };
-        };
-
-        struct opc_alu final {
-            enum $ : mscar {
-                /* ALU group 1 */
-                add  = 0x00_ma, bor = 0x01_ma,
-                band = 0x04_ma, sub = 0x05_ma,
-                bxor = 0x06_ma, cmp = 0x07_ma,
-            };
-        };
-
-        struct opc_brm final {
-            enum $ : mscar {
-                call = 1_ma<<1,
-                jmp = 1_ma<<2
-            };
-        };
-
-        struct opc_sys final {
-            enum $ : mscar {
-                int3 = 0xCC_ma,
-                ret = 0xC3_ma,
-                nop = 0x90_ma
-            };
-        };
-
         template <const bool Force = false>
         constexpr auto rex(mscar*& p, mscar r_mod, mscar r_idx, mscar r_rm, width wi) noexcept -> void {
             assert((r_mod & 0b1111'0000_ma) == 0);
@@ -181,20 +143,26 @@ namespace happy_machine::amd64 {
             *p++ = opc | (r & 0b0000'0111_ma);
         }
 
+        constexpr auto si_opc_modrm(mscar*& p, mscar opc, mscar r0, mscar mod, width wi) noexcept -> void {
+            rex(p, 0, 0, r0, wi);
+            *p++ = opc;
+            modrm(p, modrm::reg_direct, mod, r0);
+        }
+
         constexpr auto movx_ri(mscar*& p, mscar r, imm x) noexcept -> void {
             width w {x.u64 & ~((1ULL << 32) - 1) ? width::qword : width::dword};
-            si_opc(p, opc_transfer::mov_ri, r, w);
+            si_opc(p, 0b1011'1000_ma, r, w); // MOV RI
             switch (w) {
                 case width::dword: *reinterpret_cast<decltype(x.u32)*>(p) = x.u32; p += sizeof x.u32; break;
                 case width::qword: *reinterpret_cast<decltype(x.u64)*>(p) = x.u64; p += sizeof x.u64; break; // movabs - full 64-bit load
             }
         }
 
-        constexpr auto alu_ri(mscar*& p, opc_alu::$ opc, mscar r, imm x, width w) noexcept -> void {
+        constexpr auto alu_ri(mscar*& p, mscar opc, mscar r, imm x, width w) noexcept -> void {
             verify(!(x.u64 & ~((1ULL << 32) - 1)), "> 32-bit imm not allowed");
             if (x.i32 >= -(1 << 8) && x.i32 <= ((1 << 8) - 1)) [[likely]] {
                 rex(p, 0, 0, r, w);
-                *p++ = 0x83_ma;
+                *p++ = 0b1000'0011_ma;
                 modrm(p, modrm::reg_direct, opc, r);
                 *p++ = x.u32 & 0xFF;
             } else if (r == ireg64::rax) [[unlikely]] {
@@ -203,7 +171,7 @@ namespace happy_machine::amd64 {
                 *reinterpret_cast<decltype(x.i32)*>(p) = x.i32; p += sizeof x.i32;
             } else [[likely]] {
                 rex(p, 0, 0, r, w);
-                *p++ = 0x81_ma;
+                *p++ = 0b1000'0001_ma;
                 modrm(p, modrm::reg_direct, opc, r);
                 *reinterpret_cast<decltype(x.i32)*>(p) = x.i32; p += sizeof x.i32;
             }
@@ -211,27 +179,21 @@ namespace happy_machine::amd64 {
 
         constexpr auto mov_rr(mscar*& p, mscar r0, mscar r1, width wi) noexcept -> void {
             rex(p, r0, 0, r1, wi);
-            *p++ = opc_transfer::mov_rr;
+            *p++ = 0b1000'1011_ma; // MOV RR
             modrm(p, modrm::reg_direct, r0, r1);
         }
 
-        constexpr auto alu_rr(mscar*& p, opc_alu::$ opc, mscar r0, mscar r1, width wi) noexcept -> void {
+        constexpr auto alu_rr(mscar*& p, mscar opc, mscar r0, mscar r1, width wi) noexcept -> void {
             rex(p, r0, 0, r1, wi);
             *p++ = (opc << 3_ma) | 0b0000'0011_ma;
             modrm(p, modrm::reg_direct, r0, r1);
-        }
-
-        constexpr auto br(mscar*& p, mscar r0, opc_brm::$ mod) noexcept -> void {
-            rex(p, 0, 0, r0, width::dword);
-            *p++ = 0xFF_ma;
-            modrm(p, modrm::reg_direct, mod, r0);
         }
 
         constexpr auto nop_chain(mscar*& vp, std::size_t n) noexcept -> void {
             auto* p{vp};
             switch (n & 15) {
                 default:
-                case 1 : *p++ = opc_sys::nop; break;
+                case 1 : *p++ = 0x90_ma; break;
                 case 2 : *p++ = 0x40_ma; *p++ = 0x90_ma; break;
                 case 3 : *p++ = 0x0F_ma; *p++ = 0x1F_ma; *p++ = 0x00_ma; break;
                 case 4 : *p++ = 0x0F_ma; *p++ = 0x1F_ma; *p++ = 0x40_ma; *p++ = 0x00_ma; break;
@@ -251,12 +213,12 @@ namespace happy_machine::amd64 {
         }
     }
 
-    class emitter final {
-    private:
+    class emitter {
+    protected:
         std::vector<mscar> m_code {};
 
-        inline auto emit_raw(mscar x) noexcept -> void { m_code.emplace_back(x); }
-        inline auto emit_raw(const mscar* begin, const mscar* end) noexcept -> void {
+        inline auto emit_raw(mscar x) & noexcept -> void { m_code.emplace_back(x); }
+        inline auto emit_raw(const mscar* begin, const mscar* end) & noexcept -> void {
             const std::ptrdiff_t diff {end - begin};
             if (diff > 0) [[likely]] {
                 m_code.insert(m_code.cend(), begin, end);
@@ -264,9 +226,9 @@ namespace happy_machine::amd64 {
         }
 
         template <typename F> requires std::is_invocable_v<F, mscar*&>
-        inline auto emit(F&& f) noexcept -> emitter& {
+        inline auto emit(F&& f) & noexcept -> emitter& {
             mscar buf[max_instr_len];
-            std::memset(buf, enc::opc_sys::int3, sizeof buf);
+            std::memset(buf, 0xCC_ma, sizeof buf);
             mscar* base {buf}, *p {base};
             f(p);
             emit_raw(base, p);
@@ -279,49 +241,55 @@ namespace happy_machine::amd64 {
         emitter(emitter&&) = default;
         auto operator = (const emitter&) -> emitter& = delete;
         auto operator = (emitter&&) -> emitter& = default;
-        ~emitter() = default;
+        virtual ~emitter() = default;
 
-        [[nodiscard]] inline auto machine_code() const noexcept -> std::span<const mscar> { return m_code; }
+        [[nodiscard]] inline auto machine_code() const & noexcept -> std::span<const mscar> { return m_code; }
 
-        inline auto $mov    (ireg64 r0, imm x) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[likely]] { set_zero(r0); return; } enc::movx_ri(p, r0.id(), x); }); }
-        inline auto $nop    (std::size_t n = 1) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::nop_chain(p, n); });  }
-        inline auto $call   (ireg64 r0) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::br(p, r0.id(), enc::opc_brm::call); }); }
-        inline auto $jmp    (ireg64 r0) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::br(p, r0.id(), enc::opc_brm::jmp); }); }
-        inline auto $ret    () noexcept -> emitter& { emit_raw(enc::opc_sys::ret); return *this; }
-        inline auto $int3   () noexcept -> emitter& { emit_raw(enc::opc_sys::int3); return *this; }
+        inline auto $mov    (ireg64 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[likely]] { set_zero(r0); return; } enc::movx_ri(p, r0.id(), x); }); }
+        inline auto $nop    (std::size_t n = 1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::nop_chain(p, n); });  }
+        inline auto $call   (ireg64 r0) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::si_opc_modrm(p, 0b1111'1111_ma, r0.id(), 1_ma << 1_ma, width::dword); }); }
+        inline auto $jmp    (ireg64 r0) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::si_opc_modrm(p, 0b1111'1111_ma, r0.id(), 1_ma << 2_ma, width::dword); }); }
+        inline auto $ret    () & noexcept -> emitter& { emit_raw(0xC3_ma); return *this; }
+        inline auto $int3   () & noexcept -> emitter& { emit_raw(0xCC_ma); return *this; }
 
-        inline auto $push   (ireg64 r0) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::si_opc(p, enc::opc_transfer::push_r, r0.id(), width::dword); }); }
-        inline auto $pop    (ireg64 r0) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::si_opc(p, enc::opc_transfer::pop_r, r0.id(), width::dword); }); }
-        inline auto $mov    (ireg64 r0, ireg64 r1) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::mov_rr(p, r0.id(), r1.id(), width::qword); }); }
-        inline auto $add    (ireg64 r0, ireg64 r1) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, enc::opc_alu::add, r0.id(), r1.id(), width::qword); }); }
-        inline auto $sub    (ireg64 r0, ireg64 r1) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, enc::opc_alu::sub, r0.id(), r1.id(), width::qword); }); }
-        inline auto $and    (ireg64 r0, ireg64 r1) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, enc::opc_alu::band, r0.id(), r1.id(), width::qword); }); }
-        inline auto $or     (ireg64 r0, ireg64 r1) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, enc::opc_alu::bor, r0.id(), r1.id(), width::qword); }); }
-        inline auto $xor    (ireg64 r0, ireg64 r1) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, enc::opc_alu::bxor, r0.id(), r1.id(), width::qword); }); }
-        inline auto $cmp    (ireg64 r0, ireg64 r1) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, enc::opc_alu::cmp, r0.id(), r1.id(), width::qword); }); }
-        inline auto $add    (ireg64 r0, imm x) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri(p, enc::opc_alu::add, r0.id(), x, width::qword); }); }
-        inline auto $sub    (ireg64 r0, imm x) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri(p, enc::opc_alu::sub, r0.id(), x, width::qword); }); }
-        inline auto $and    (ireg64 r0, imm x) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri(p, enc::opc_alu::band, r0.id(), x, width::qword); }); }
-        inline auto $or     (ireg64 r0, imm x) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri(p, enc::opc_alu::bor, r0.id(), x, width::qword); }); }
-        inline auto $xor    (ireg64 r0, imm x) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_ri(p, enc::opc_alu::bxor, r0.id(), x, width::qword); }); }
+        inline auto $push   (ireg64 r0) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::si_opc(p, 0b0101'0000_ma, r0.id(), width::dword); }); }
+        inline auto $pop    (ireg64 r0) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::si_opc(p, 0b0101'1000_ma, r0.id(), width::dword); }); }
+        inline auto $inc    (ireg64 r0) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::si_opc_modrm(p, 0b1111'1111_ma, r0.id(), 0b0000'0000_ma, width::qword); }); }
+        inline auto $dec    (ireg64 r0) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::si_opc_modrm(p, 0b1111'1111_ma, r0.id(), 0b0000'0001_ma, width::qword); }); }
+        inline auto $mov    (ireg64 r0, ireg64 r1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::mov_rr(p, r0.id(), r1.id(), width::qword); }); }
+        inline auto $add    (ireg64 r0, ireg64 r1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, 0b0000'0000_ma, r0.id(), r1.id(), width::qword); }); }
+        inline auto $sub    (ireg64 r0, ireg64 r1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, 0b0000'0101_ma, r0.id(), r1.id(), width::qword); }); }
+        inline auto $and    (ireg64 r0, ireg64 r1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, 0b0000'0100_ma, r0.id(), r1.id(), width::qword); }); }
+        inline auto $or     (ireg64 r0, ireg64 r1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, 0b0000'0001_ma, r0.id(), r1.id(), width::qword); }); }
+        inline auto $xor    (ireg64 r0, ireg64 r1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, 0b0000'0110_ma, r0.id(), r1.id(), width::qword); }); }
+        inline auto $cmp    (ireg64 r0, ireg64 r1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, 0b0000'0111_ma, r0.id(), r1.id(), width::qword); }); }
+        inline auto $add    (ireg64 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri(p, 0b0000'0000_ma, r0.id(), x, width::qword); }); }
+        inline auto $sub    (ireg64 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri(p, 0b0000'0101_ma, r0.id(), x, width::qword); }); }
+        inline auto $and    (ireg64 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri(p, 0b0000'0100_ma, r0.id(), x, width::qword); }); }
+        inline auto $or     (ireg64 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri(p, 0b0000'0001_ma, r0.id(), x, width::qword); }); }
+        inline auto $xor    (ireg64 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_ri(p, 0b0000'0110_ma, r0.id(), x, width::qword); }); }
+        inline auto $cmp    (ireg64 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_ri(p, 0b0000'0111_ma, r0.id(), x, width::qword); }); }
 
-        inline auto $push   (ireg32 r0) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::si_opc(p, 0x50_ma, r0.id(), width::dword); }); }
-        inline auto $pop    (ireg32 r0) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::si_opc(p, 0x58_ma, r0.id(), width::dword); }); }
-        inline auto $mov    (ireg32 r0, ireg32 r1) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::mov_rr(p, r0.id(), r1.id(), width::dword); }); }
-        inline auto $add    (ireg32 r0, ireg32 r1) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, enc::opc_alu::add, r0.id(), r1.id(), width::dword); }); }
-        inline auto $sub    (ireg32 r0, ireg32 r1) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, enc::opc_alu::sub, r0.id(), r1.id(), width::dword); }); }
-        inline auto $and    (ireg32 r0, ireg32 r1) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, enc::opc_alu::band, r0.id(), r1.id(), width::dword); }); }
-        inline auto $or     (ireg32 r0, ireg32 r1) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, enc::opc_alu::bor, r0.id(), r1.id(), width::dword); }); }
-        inline auto $xor    (ireg32 r0, ireg32 r1) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, enc::opc_alu::bxor, r0.id(), r1.id(), width::dword); }); }
-        inline auto $cmp    (ireg32 r0, ireg32 r1) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, enc::opc_alu::cmp, r0.id(), r1.id(), width::dword); }); }
-        inline auto $add    (ireg32 r0, imm x) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri(p, enc::opc_alu::add, r0.id(), x, width::dword); }); }
-        inline auto $sub    (ireg32 r0, imm x) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri(p, enc::opc_alu::sub, r0.id(), x, width::dword); }); }
-        inline auto $and    (ireg32 r0, imm x) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri(p, enc::opc_alu::band, r0.id(), x, width::dword); }); }
-        inline auto $or     (ireg32 r0, imm x) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri(p, enc::opc_alu::bor, r0.id(), x, width::dword); }); }
-        inline auto $xor    (ireg32 r0, imm x) noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_ri(p, enc::opc_alu::bxor, r0.id(), x, width::dword); }); }
+        inline auto $push   (ireg32 r0) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::si_opc(p, 0b0101'0000_ma, r0.id(), width::dword); }); }
+        inline auto $pop    (ireg32 r0) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::si_opc(p, 0b0101'1000_ma, r0.id(), width::dword); }); }
+        inline auto $inc    (ireg32 r0) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::si_opc_modrm(p, 0b1111'1111_ma, r0.id(), 0, width::dword); }); }
+        inline auto $dec    (ireg32 r0) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::si_opc_modrm(p, 0b1111'1111_ma, r0.id(), 1, width::dword); }); }
+        inline auto $mov    (ireg32 r0, ireg32 r1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::mov_rr(p, r0.id(), r1.id(), width::dword); }); }
+        inline auto $add    (ireg32 r0, ireg32 r1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, 0b0000'0000_ma, r0.id(), r1.id(), width::dword); }); }
+        inline auto $sub    (ireg32 r0, ireg32 r1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, 0b0000'0101_ma, r0.id(), r1.id(), width::dword); }); }
+        inline auto $and    (ireg32 r0, ireg32 r1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, 0b0000'0100_ma, r0.id(), r1.id(), width::dword); }); }
+        inline auto $or     (ireg32 r0, ireg32 r1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, 0b0000'0001_ma, r0.id(), r1.id(), width::dword); }); }
+        inline auto $xor    (ireg32 r0, ireg32 r1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, 0b0000'0110_ma, r0.id(), r1.id(), width::dword); }); }
+        inline auto $cmp    (ireg32 r0, ireg32 r1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, 0b0000'0111_ma, r0.id(), r1.id(), width::dword); }); }
+        inline auto $add    (ireg32 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri(p, 0b0000'0000_ma, r0.id(), x, width::dword); }); }
+        inline auto $sub    (ireg32 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri(p, 0b0000'0101_ma, r0.id(), x, width::dword); }); }
+        inline auto $and    (ireg32 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri(p, 0b0000'0100_ma, r0.id(), x, width::dword); }); }
+        inline auto $or     (ireg32 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri(p, 0b0000'0001_ma, r0.id(), x, width::dword); }); }
+        inline auto $xor    (ireg32 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_ri(p, 0b0000'0110_ma, r0.id(), x, width::dword); }); }
+        inline auto $cmp    (ireg32 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_ri(p, 0b0000'0111_ma, r0.id(), x, width::dword); }); }
 
         template <const bool BackupVolatileRegs = true>
-        inline auto prologue(std::size_t frame_size = 0) noexcept -> emitter& {
+        inline auto prologue(std::size_t frame_size = 0) & noexcept -> emitter& {
             using enum ireg64::$;
             $push(rbp);
             $mov(rbp, rsp);
@@ -339,7 +307,7 @@ namespace happy_machine::amd64 {
         }
 
         template <const bool BackupVolatileRegs = true>
-        inline auto epilogue(std::optional<imm> ret_val = std::nullopt) noexcept -> emitter& {
+        inline auto epilogue(std::optional<imm> ret_val = std::nullopt) & noexcept -> emitter& {
             using enum ireg64::$;
             if constexpr (BackupVolatileRegs) {
                 for (mscar i {}, m {1}; i < ireg64::count; ++i, m <<= 1) {
@@ -357,21 +325,21 @@ namespace happy_machine::amd64 {
             return *this;
         }
 
-        inline auto set_zero(ireg64 r0) noexcept -> void {
+        inline auto set_zero(ireg64 r0) & noexcept -> void {
             ireg32 r {static_cast<ireg32::$>(r0.id())};
             $xor(r, r);
         }
 
-        inline auto set_zero(ireg32 r0) noexcept -> void { $xor(r0, r0); }
+        inline auto set_zero(ireg32 r0) & noexcept -> void { $xor(r0, r0); }
 
-        inline auto set_zero(ireg64 from, ireg64 to) noexcept -> void {
+        inline auto set_zero(ireg64 from, ireg64 to) & noexcept -> void {
             verify(from.id() < to.id(), "invalid range");
             for (mscar i {from.id()}; i < to.id(); ++i) {
                 set_zero(ireg64{static_cast<ireg64::$>(i)});
             }
         }
 
-        inline auto set_zero(ireg32 from, ireg32 to) noexcept -> void {
+        inline auto set_zero(ireg32 from, ireg32 to) & noexcept -> void {
             verify(from.id() < to.id(), "invalid range");
             for (mscar i {from.id()}; i < to.id(); ++i) {
                 set_zero(ireg64{static_cast<ireg64::$>(i)});
@@ -379,7 +347,7 @@ namespace happy_machine::amd64 {
         }
 
         template <typename... Regs> requires std::disjunction_v<std::is_same<std::common_type_t<Regs...>, ireg64::$>, std::is_same<std::common_type_t<Regs...>, ireg32::$>>
-        inline auto set_zero(Regs&&... regs) noexcept -> void {
+        inline auto set_zero(Regs&&... regs) & noexcept -> void {
             for (auto&& r : std::initializer_list<std::common_type_t<Regs...>> {regs...}) { set_zero(r); }
         }
     };
