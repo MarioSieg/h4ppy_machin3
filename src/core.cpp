@@ -56,7 +56,7 @@ namespace happy_machine {
         {
             const int prot {map_protection(access)};
             int err {errno};
-            void* p {::mmap(hint, sz, prot, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0)};
+            void* p {::mmap(hint, sz, prot, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0)};
             errno = err;
             verify(p, "mmap failed");
             base = p;
