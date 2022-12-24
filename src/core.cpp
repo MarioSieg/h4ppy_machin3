@@ -45,8 +45,8 @@ namespace happy_machine {
         std::size_t sz,
         std::size_t align,
         std::underlying_type_t<page_access::$> access,
-        void *hint,
-        valloc_header **out_hdr
+        void* hint,
+        valloc_header** out_hdr
     ) -> virtual_mem {
         const std::size_t off{align - 1 + sizeof(void*)};
         sz += align ? off + sizeof(valloc_header) : sizeof(valloc_header);
