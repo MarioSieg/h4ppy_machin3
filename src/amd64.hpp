@@ -227,7 +227,7 @@ namespace happy_machine::amd64 {
         }
 
         constexpr auto nop_chain(mscar*& vp, std::size_t n) noexcept -> void {
-            auto* p{vp};
+            auto* p {vp};
             switch (n & 15) {
                 default:
                 case 1 : *p++ = 0x90_mas; break;
