@@ -255,7 +255,7 @@ namespace happy_machine::amd64 {
         inline auto emit_raw(mscar x) & noexcept -> void { m_code.emplace_back(x); }
         inline auto emit_raw(const mscar* begin, const mscar* end) & noexcept -> void {
             const std::ptrdiff_t diff {end - begin};
-            if (diff > 0) [[likely]] {
+            if (diff) [[likely]] {
                 m_code.insert(m_code.cend(), begin, end);
             }
         }
