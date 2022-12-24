@@ -48,7 +48,7 @@ namespace happy_machine {
         void *hint,
         valloc_header **out_hdr
     ) -> virtual_mem {
-        const std::size_t off{align-1+sizeof(void*)};
+        const std::size_t off{align - 1 + sizeof(void*)};
         sz += align ? off + sizeof(valloc_header) : sizeof(valloc_header);
         void* base;
         std::uint32_t os_access;
@@ -66,7 +66,7 @@ namespace happy_machine {
         {
             const DWORD prot {map_protection(access)};
             DWORD err {::GetLastError()};
-            void* p {::VirtualAlloc(hint, sz, MEM_RESERVE|MEM_COMMIT|MEM_TOP_DOWN, prot)};
+            void* p {::VirtualAlloc(hint, sz, MEM_RESERVE | MEM_COMMIT | MEM_TOP_DOWN, prot)};
             ::SetLastError(err);
             verify(p, "virtual alloc failed");
             base = p;
