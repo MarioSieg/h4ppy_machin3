@@ -84,7 +84,7 @@ namespace happy_machine {
         if (out) { *out_hdr = &h; }
         if (align) {
             void** aligned {reinterpret_cast<void**>((reinterpret_cast<std::uintptr_t>(base) + off) & ~(align - 1))};
-            *(aligned-1) = base;
+            *(aligned - 1) = base;
             out = aligned;
         } else { out = base; }
         return reinterpret_cast<virtual_mem>(base);
