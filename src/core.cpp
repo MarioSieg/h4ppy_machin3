@@ -48,7 +48,7 @@ namespace happy_machine {
         void* hint,
         valloc_header** out_hdr
     ) -> virtual_mem {
-        const std::size_t off{align - 1 + sizeof(void*)};
+        const std::size_t off {align - 1 + sizeof(void*)};
         sz += align ? off + sizeof(valloc_header) : sizeof(valloc_header);
         void* base;
         std::uint32_t os_access;
