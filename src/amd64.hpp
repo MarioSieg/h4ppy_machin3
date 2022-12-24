@@ -228,23 +228,23 @@ namespace happy_machine::amd64 {
 
         constexpr auto nop_chain(mscar*& vp, std::size_t n) noexcept -> void {
             auto* p {vp};
-            switch (n & 15) {
+            switch (n & 0x0F) {
                 default:
-                case 1 : *p++ = 0x90_mas; break;
-                case 2 : *p++ = 0x40_mas; *p++ = 0x90_mas; break;
-                case 3 : *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x00_mas; break;
-                case 4 : *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x40_mas; *p++ = 0x00_mas; break;
-                case 5 : *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x44_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
-                case 6 : *p++ = 0x66_mas; *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x44_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
-                case 7 : *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x80_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
-                case 8 : *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x84_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
-                case 9 : *p++ = 0x66_mas; *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x84_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
-                case 10: *p++ = 0x66_mas; *p++ = 0x2E_mas; *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x84_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
-                case 11: *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x2E_mas; *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x84_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
-                case 12: *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x2E_mas; *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x84_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
-                case 13: *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x2E_mas; *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x84_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
-                case 14: *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x2E_mas; *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x84_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
-                case 15: *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x2E_mas; *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x84_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
+                case 0x01: *p++ = 0x90_mas; break;
+                case 0x02: *p++ = 0x40_mas; *p++ = 0x90_mas; break;
+                case 0x03: *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x00_mas; break;
+                case 0x04: *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x40_mas; *p++ = 0x00_mas; break;
+                case 0x05: *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x44_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
+                case 0x06: *p++ = 0x66_mas; *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x44_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
+                case 0x07: *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x80_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
+                case 0x08: *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x84_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
+                case 0x09: *p++ = 0x66_mas; *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x84_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
+                case 0x0A: *p++ = 0x66_mas; *p++ = 0x2E_mas; *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x84_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
+                case 0x0B: *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x2E_mas; *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x84_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
+                case 0x0C: *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x2E_mas; *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x84_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
+                case 0x0D: *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x2E_mas; *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x84_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
+                case 0x0E: *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x2E_mas; *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x84_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
+                case 0x0F: *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x66_mas; *p++ = 0x2E_mas; *p++ = 0x0F_mas; *p++ = 0x1F_mas; *p++ = 0x84_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; *p++ = 0x00_mas; break;
             }
             vp = p;
         }
