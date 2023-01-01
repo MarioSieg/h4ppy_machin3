@@ -17,10 +17,10 @@
 #if defined(_WIN32) || defined(_WIN64)
 #   undef OS_WINDOWS
 #   define OS_WINDOWS true
-#elifdef __linux__
+#elif defined(__linux__)
 #   undef OS_LINUX
 #   define OS_LINUX true
-#elifdef __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__
+#elif defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__)
 #   undef OS_OSX
 #   define OS_OSX true
 #else
