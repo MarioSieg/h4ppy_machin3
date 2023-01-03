@@ -297,18 +297,12 @@ namespace happy_machine::amd64 {
         inline auto $or     (ireg64 r0, ireg64 r1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, 0b0000'0001_mas, r0.id(), r1.id(), width::qword); }); }
         inline auto $xor    (ireg64 r0, ireg64 r1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, 0b0000'0110_mas, r0.id(), r1.id(), width::qword); }); }
         inline auto $cmp    (ireg64 r0, ireg64 r1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, 0b0000'0111_mas, r0.id(), r1.id(), width::qword); }); }
-        inline auto $add    (ireg64 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; }
-                enc::alu_ri32(p, 0b0000'0000_mas, r0.id(), x, width::qword); }); }
-        inline auto $sub    (ireg64 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; }
-                enc::alu_ri32(p, 0b0000'0101_mas, r0.id(), x, width::qword); }); }
-        inline auto $and    (ireg64 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; }
-                enc::alu_ri32(p, 0b0000'0100_mas, r0.id(), x, width::qword); }); }
-        inline auto $or     (ireg64 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; }
-                enc::alu_ri32(p, 0b0000'0001_mas, r0.id(), x, width::qword); }); }
-        inline auto $xor    (ireg64 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void {
-                enc::alu_ri32(p, 0b0000'0110_mas, r0.id(), x, width::qword); }); }
-        inline auto $cmp    (ireg64 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void {
-                enc::alu_ri32(p, 0b0000'0111_mas, r0.id(), x, width::qword); }); }
+        inline auto $add    (ireg64 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri32(p, 0b0000'0000_mas, r0.id(), x, width::qword); }); }
+        inline auto $sub    (ireg64 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri32(p, 0b0000'0101_mas, r0.id(), x, width::qword); }); }
+        inline auto $and    (ireg64 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri32(p, 0b0000'0100_mas, r0.id(), x, width::qword); }); }
+        inline auto $or     (ireg64 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri32(p, 0b0000'0001_mas, r0.id(), x, width::qword); }); }
+        inline auto $xor    (ireg64 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_ri32(p, 0b0000'0110_mas, r0.id(), x, width::qword); }); }
+        inline auto $cmp    (ireg64 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_ri32(p, 0b0000'0111_mas, r0.id(), x, width::qword); }); }
 
         inline auto $push   (ireg32 r0) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::si_opc(p, 0b0101'0000_mas, r0.id(), width::dword); }); }
         inline auto $pop    (ireg32 r0) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::si_opc(p, 0b0101'1000_mas, r0.id(), width::dword); }); }
@@ -321,18 +315,12 @@ namespace happy_machine::amd64 {
         inline auto $or     (ireg32 r0, ireg32 r1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, 0b0000'0001_mas, r0.id(), r1.id(), width::dword); }); }
         inline auto $xor    (ireg32 r0, ireg32 r1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, 0b0000'0110_mas, r0.id(), r1.id(), width::dword); }); }
         inline auto $cmp    (ireg32 r0, ireg32 r1) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_rr(p, 0b0000'0111_mas, r0.id(), r1.id(), width::dword); }); }
-        inline auto $add    (ireg32 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; }
-                enc::alu_ri32(p, 0b0000'0000_mas, r0.id(), x, width::dword); }); }
-        inline auto $sub    (ireg32 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; }
-                enc::alu_ri32(p, 0b0000'0101_mas, r0.id(), x, width::dword); }); }
-        inline auto $and    (ireg32 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; }
-                enc::alu_ri32(p, 0b0000'0100_mas, r0.id(), x, width::dword); }); }
-        inline auto $or     (ireg32 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; }
-                enc::alu_ri32(p, 0b0000'0001_mas, r0.id(), x, width::dword); }); }
-        inline auto $xor    (ireg32 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void {
-                enc::alu_ri32(p, 0b0000'0110_mas, r0.id(), x, width::dword); }); }
-        inline auto $cmp    (ireg32 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void {
-                enc::alu_ri32(p, 0b0000'0111_mas, r0.id(), x, width::dword); }); }
+        inline auto $add    (ireg32 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri32(p, 0b0000'0000_mas, r0.id(), x, width::dword); }); }
+        inline auto $sub    (ireg32 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri32(p, 0b0000'0101_mas, r0.id(), x, width::dword); }); }
+        inline auto $and    (ireg32 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri32(p, 0b0000'0100_mas, r0.id(), x, width::dword); }); }
+        inline auto $or     (ireg32 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { if(!x.u64) [[unlikely]] { return; } enc::alu_ri32(p, 0b0000'0001_mas, r0.id(), x, width::dword); }); }
+        inline auto $xor    (ireg32 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_ri32(p, 0b0000'0110_mas, r0.id(), x, width::dword); }); }
+        inline auto $cmp    (ireg32 r0, imm x) & noexcept -> emitter& { return emit([=](mscar*& p) noexcept -> void { enc::alu_ri32(p, 0b0000'0111_mas, r0.id(), x, width::dword); }); }
 
         inline virtual auto prologue(std::size_t frame_size, bool backup_volatile_regs) & noexcept -> void final override {
             using enum ireg64::$;

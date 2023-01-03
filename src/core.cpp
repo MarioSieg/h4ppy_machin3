@@ -42,13 +42,13 @@ namespace happy_machine {
 
     auto sys_valloc(
         void*& out,
-        std::size_t sz,
-        std::size_t align,
+        std::uint32_t sz,
+        std::uint8_t align,
         std::underlying_type_t<page_access::$> access,
         void* hint,
-        valloc_header** out_hdr
+        const valloc_header** out_hdr
     ) -> virtual_mem {
-        const std::size_t off {align - 1 + sizeof(void*)};
+        const std::size_t off {align + sizeof(void*) - 1};
         sz += align ? off + sizeof(valloc_header) : sizeof(valloc_header);
         void* base;
         std::uint32_t os_access;
@@ -78,10 +78,11 @@ namespace happy_machine {
         auto& h {valloc_header::of(reinterpret_cast<virtual_mem>(base))};
         h.size = sz;
         h.align = align;
-        h.offset = off;
+        h.offset = align ? off : 0;
         h.access = static_cast<page_access::$>(access);
         h.os_access = os_access;
         if (out) { *out_hdr = &h; }
+        base = static_cast<std::uint8_t*>(base) + sizeof(valloc_header);
         if (align) {
             void** aligned {reinterpret_cast<void**>((reinterpret_cast<std::uintptr_t>(base) + off) & ~(align - 1))};
             *(aligned - 1) = base;
@@ -92,9 +93,19 @@ namespace happy_machine {
 
     auto sys_vpatch(virtual_mem p, std::underlying_type_t<page_access::$> access) -> void {
         if (!p) [[unlikely]] { return; }
+        auto& h { valloc_header::of(p) };
+        if (access == h.offset) [[unlikely]] { return; }
+        #if OS_LINUX
+        #   error "Todo"
+        #elif OS_WINDOWS
+            DWORD dummy;
+            verify(::VirtualProtect(reinterpret_cast<void*>(p), h.size, access, &dummy), "virtual protect failed");
+        #else
+        #   error "Missing OS impl"
+        #endif
     }
 
-    auto sys_vfree(virtual_mem p) -> void {
+    auto sys_vfree(virtual_mem& p) -> void {
         if (!p) [[unlikely]] { return; }
         sys_vpatch(p, page_access::dealloc);
         #if OS_LINUX
@@ -105,5 +116,6 @@ namespace happy_machine {
         #else
         #   error "Missing OS impl"
         #endif
+        p = 0;
     }
 }

@@ -94,40 +94,40 @@ namespace happy_machine {
     };
 
     using virtual_mem = std::uintptr_t;
-    struct alignas(alignof(std::size_t)) valloc_header final {
-        std::size_t size {};
-        std::size_t align {};
-        std::size_t offset {};
+    struct alignas(alignof(std::uint8_t)) __attribute__((packed)) valloc_header final {
+        std::uint32_t size {};
+        std::uint8_t align {};
+        std::uint8_t offset {};
         page_access::$ access {};
         std::uint32_t os_access {};
         [[nodiscard]] static auto of(virtual_mem p) noexcept -> valloc_header&;
     };
 
     inline auto valloc_header::of(virtual_mem p) noexcept -> valloc_header& {
-        return *reinterpret_cast<valloc_header*>(reinterpret_cast<std::uint8_t*>(p)-sizeof(valloc_header));
+        return *reinterpret_cast<valloc_header*>(p);
     }
 
     using valloc_proc = auto (*)(
         void*& out,
-        std::size_t sz,
-        std::size_t align,
+        std::uint32_t sz,
+        std::uint8_t align,
         std::underlying_type_t<page_access::$> access,
         void* hint,
-        valloc_header** out_hdr
+        const valloc_header** out_hdr
     ) -> virtual_mem;
-    using vfree_proc = auto (*)(virtual_mem p) -> void;
+    using vfree_proc = auto (*)(virtual_mem& p) -> void;
     using vpatch_proc = auto (*)(virtual_mem p,  std::underlying_type_t<page_access::$> access) -> void;
 
     [[nodiscard]] extern auto sys_valloc(
         void*& out,
-        std::size_t sz,
-        std::size_t align = 0,
+        std::uint32_t sz,
+        std::uint8_t align = 0,
         std::underlying_type_t<page_access::$> access = page_access::alloc,
         void* hint = nullptr,
-        valloc_header** out_hdr = nullptr
+        const valloc_header** out_hdr = nullptr
     ) -> virtual_mem;
     extern auto sys_vpatch(virtual_mem p,  std::underlying_type_t<page_access::$> access) -> void;
-    extern auto sys_vfree(virtual_mem p) -> void;
+    extern auto sys_vfree(virtual_mem& p) -> void;
 
     inline constinit valloc_proc valloc {&sys_valloc};
     inline constinit vpatch_proc vpatch {&sys_vpatch};
